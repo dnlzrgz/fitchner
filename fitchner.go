@@ -1,53 +1,34 @@
-// Package fitchner provides utilities for work with HTTP requests.
+// Package fitchner provides utilities to make HTTP requests
+// and to extract information from the responses.
 package fitchner
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
-
-	"golang.org/x/net/html"
 )
 
-// Fetch receives an *http.Request and returns an *http.Response
-// or an error if the request gets a bad Status Code or the
-// *http.Request received is not valid.
-func Fetch(req *http.Request) (*http.Response, error) {
-	client := &http.Client{}
-	resp, err := client.Do(req)
+// Fetch receives an *http.Client and an *http.Request to make a request.
+// An error is returned if the client's fails to make the request or if there
+// is a non-2xx response. When there is no error, returns a byte slice with
+// the body of the response.
+func Fetch(c *http.Client, req *http.Request) ([]byte, error) {
+	resp, err := c.Do(req)
 	if err != nil {
-		resp.Body.Close()
-		return nil, fmt.Errorf("bad request: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
+	defer resp.Body.Close()
 
 	if checkBadStatus(resp.StatusCode) {
-		resp.Body.Close()
-		return nil, fmt.Errorf("bad status code %v at %v", resp.StatusCode, req.URL)
+		return nil, fmt.Errorf("got %v at %s", resp.Status, req.URL)
 	}
 
-	// It's responsability of the caller to close the body of the resp.
-	return resp, nil
-}
-
-// HTMLParser parses an *http.Response and returns an slice of html.Token
-// with all the StartTagToken (<a> by example) found
-// and closes the body of the *http.Response.
-func HTMLParser(r *http.Response) []html.Token {
-	b := html.NewTokenizer(r.Body)
-	defer r.Body.Close()
-
-	parsed := []html.Token{}
-
-	for {
-		tt := b.Next()
-
-		switch {
-		case tt == html.ErrorToken:
-			return parsed
-		case tt == html.StartTagToken:
-			t := b.Token()
-			parsed = append(parsed, t)
-		}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("while reading %s: %v", req.URL, err)
 	}
+
+	return b, nil
 }
 
 func checkBadStatus(s int) bool {
