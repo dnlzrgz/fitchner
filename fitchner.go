@@ -3,14 +3,17 @@
 package fitchner
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"golang.org/x/net/html"
 )
 
 // Fetch receives an *http.Client and an *http.Request to make a request.
-// An error is returned if the client's fails to make the request or if there
-// is a non-2xx response. When there is no error, returns a byte slice with
+// An error is returned if the client fails to make the request or if there
+// is a non-2xx response. When there is no error, returns a []byte with
 // the body of the response.
 func Fetch(c *http.Client, req *http.Request) ([]byte, error) {
 	resp, err := c.Do(req)
@@ -33,4 +36,31 @@ func Fetch(c *http.Client, req *http.Request) ([]byte, error) {
 
 func checkBadStatus(s int) bool {
 	return s != http.StatusOK
+}
+
+// ExtractNodes receives a []byte and extracts all the nodes found.
+// If something goes wrong at parsing it returns an error.
+// When there is no error, returns an []*html.Node with all the nodes found.
+func ExtractNodes(b []byte) ([]*html.Node, error) {
+	doc, err := html.Parse(bytes.NewReader(b))
+	if err != nil {
+		return nil, fmt.Errorf("while parsing: %v", err)
+	}
+
+	var parser func(n *html.Node)
+	parsed := []*html.Node{}
+
+	parser = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			parsed = append(parsed, n)
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			parser(c)
+		}
+	}
+
+	parser(doc)
+
+	return parsed, nil
 }
