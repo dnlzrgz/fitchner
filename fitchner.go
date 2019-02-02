@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -54,13 +55,51 @@ func ExtractNodes(b []byte) ([]*html.Node, error) {
 		if n.Type == html.ElementNode {
 			parsed = append(parsed, n)
 		}
+	}
 
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			parser(c)
+	forEachNode(doc, parser, nil)
+	return parsed, nil
+}
+
+// ExtractLinks receives a []byte and extracts all the links found.
+// If something goes wrong at parsing it returns an error.
+// When there is no error, returns an []string with all the links found.
+// For the moment it not parses the URLs to be absolute if any.
+func ExtractLinks(b []byte) ([]string, error) {
+	doc, err := html.Parse(bytes.NewReader(b))
+	if err != nil {
+		return nil, fmt.Errorf("while parsing: %v", err)
+	}
+
+	var parser func(n *html.Node)
+	links := []string{}
+
+	parser = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			for _, a := range n.Attr {
+				if a.Key != "href" {
+					continue
+				}
+
+				links = append(links, strings.TrimPrefix(a.Val, "mailto:"))
+			}
 		}
 	}
 
-	parser(doc)
+	forEachNode(doc, parser, nil)
+	return links, nil
+}
 
-	return parsed, nil
+func forEachNode(n *html.Node, pre, post func(n *html.Node)) {
+	if pre != nil {
+		pre(n)
+	}
+
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		forEachNode(c, pre, post)
+	}
+
+	if post != nil {
+		post(n)
+	}
 }

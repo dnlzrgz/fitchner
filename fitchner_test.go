@@ -36,7 +36,8 @@ func TestFetch(t *testing.T) {
 		"<title>Testing</title>",
 		"<h1 class=\"title\">",
 		"</h1>",
-		"<a href=\"#\"",
+		"<a href=\"https://www.google.com\"",
+		"<a href=\"mailto:",
 		"</html>",
 	}
 
@@ -91,7 +92,7 @@ func TestExtractNodes(t *testing.T) {
 			attr: []html.Attribute{
 				html.Attribute{
 					Key: "href",
-					Val: "#",
+					Val: "https://www.google.com",
 				},
 				html.Attribute{
 					Key: "class",
@@ -100,6 +101,23 @@ func TestExtractNodes(t *testing.T) {
 				html.Attribute{
 					Key: "id",
 					Val: "link",
+				},
+			},
+		},
+		{
+			data: "a",
+			attr: []html.Attribute{
+				html.Attribute{
+					Key: "href",
+					Val: "mailto:testing@test.com",
+				},
+				html.Attribute{
+					Key: "class",
+					Val: "mail",
+				},
+				html.Attribute{
+					Key: "id",
+					Val: "mail",
 				},
 			},
 		},
@@ -124,6 +142,40 @@ func TestExtractNodes(t *testing.T) {
 			if attr.Val != n.Attr[j].Val {
 				t.Errorf("expected node %q to have attribute %v with value %v. got %v", n.Data, attr.Key, attr.Val, n.Attr[j].Val)
 			}
+		}
+	}
+}
+
+func TestExtractLinks(t *testing.T) {
+	handler := testHandler()
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
+
+	req, err := http.NewRequest("GET", server.URL, nil)
+	if err != nil {
+		t.Fatalf("while creating a new request: %v", err)
+	}
+
+	client := &http.Client{}
+	b, err := Fetch(client, req)
+	if err != nil {
+		t.Errorf("while making a new fetch: %v", err)
+	}
+
+	links, err := ExtractLinks(b)
+	if err != nil {
+		t.Errorf("while extracting nodes: %v", err)
+	}
+
+	tests := []string{"https://www.google.com", "testing@test.com"}
+
+	if len(links) != len(tests) {
+		t.Errorf("expected links to have len %v. got: %v", len(tests), len(links))
+	}
+
+	for i, tt := range tests {
+		if tt != links[i] {
+			t.Errorf("expected link to be %q. got: %q", tt, links[i])
 		}
 	}
 }
@@ -165,6 +217,27 @@ func BenchmarkExtractNodes(b *testing.B) {
 	}
 }
 
+func BenchmarkExtractLinks(b *testing.B) {
+	handler := testHandler()
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
+
+	req, err := http.NewRequest("GET", server.URL, nil)
+	if err != nil {
+		b.Fatalf("while creating a new request: %v", err)
+	}
+
+	client := &http.Client{}
+	body, err := Fetch(client, req)
+	if err != nil {
+		b.Fatalf("while making a new fetch: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		ExtractLinks(body)
+	}
+}
+
 func testHandler() func(w http.ResponseWriter, r *http.Request) {
 	tpl := `<!DOCTYPE HTML>
 	<html>
@@ -175,7 +248,8 @@ func testHandler() func(w http.ResponseWriter, r *http.Request) {
 	<header>
 	<h1 class="title">Testing</h1>
 	</header>
-	<a href="#" class="link" id="link">Link</a>
+	<a href="https://www.google.com" class="link" id="link">Links</a>
+	<a href="mailto:testing@test.com" class="mail" id="mail">Mail</a>
 	</body>
 	</html>`
 
