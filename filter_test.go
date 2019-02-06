@@ -1,33 +1,13 @@
 package fitchner
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"golang.org/x/net/html"
 )
 
 func TestFilterAttr(t *testing.T) {
-	handler := testHandler()
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	req, err := http.NewRequest("GET", server.URL, nil)
-	if err != nil {
-		t.Fatalf("while creating a new request: %v", err)
-	}
-
-	client := &http.Client{}
-	b, err := Fetch(client, req)
-	if err != nil {
-		t.Errorf("while making a new fetch: %v", err)
-	}
-
-	nodes, err := Nodes(b)
-	if err != nil {
-		t.Errorf("while extracting nodes: %v", err)
-	}
+	nodes := testNodes(t)
 
 	tests := []string{"h1", "a", "a"}
 	filtered := FilterAttr(nodes, "class")
@@ -44,25 +24,7 @@ func TestFilterAttr(t *testing.T) {
 }
 
 func TestFilterTag(t *testing.T) {
-	handler := testHandler()
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	req, err := http.NewRequest("GET", server.URL, nil)
-	if err != nil {
-		t.Fatalf("while creating a new request: %v", err)
-	}
-
-	client := &http.Client{}
-	b, err := Fetch(client, req)
-	if err != nil {
-		t.Errorf("while making a new fetch: %v", err)
-	}
-
-	nodes, err := Nodes(b)
-	if err != nil {
-		t.Errorf("while extracting nodes: %v", err)
-	}
+	nodes := testNodes(t)
 
 	filtered := FilterTag(nodes, "h1")
 	if len(filtered) > 1 {
@@ -80,25 +42,7 @@ func TestFilterTag(t *testing.T) {
 }
 
 func TestLinks(t *testing.T) {
-	handler := testHandler()
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	req, err := http.NewRequest("GET", server.URL, nil)
-	if err != nil {
-		t.Fatalf("while creating a new request: %v", err)
-	}
-
-	client := &http.Client{}
-	b, err := Fetch(client, req)
-	if err != nil {
-		t.Errorf("while making a new fetch: %v", err)
-	}
-
-	nodes, err := Nodes(b)
-	if err != nil {
-		t.Errorf("while extracting nodes: %v", err)
-	}
+	nodes := testNodes(t)
 
 	tests := []string{"https://www.google.com", "mailto:testing@test.com"}
 	links := Links(nodes)

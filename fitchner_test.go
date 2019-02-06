@@ -11,20 +11,7 @@ import (
 )
 
 func TestFetch(t *testing.T) {
-	handler := testHandler()
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	req, err := http.NewRequest("GET", server.URL, nil)
-	if err != nil {
-		t.Fatalf("while creating a new request: %v", err)
-	}
-
-	client := &http.Client{}
-	b, err := Fetch(client, req)
-	if err != nil {
-		t.Errorf("while making a new fetch: %v", err)
-	}
+	b := testFetch(t)
 
 	if len(b) <= 0 {
 		t.Fatalf("expected []byte to not be empty")
@@ -49,25 +36,7 @@ func TestFetch(t *testing.T) {
 }
 
 func TestNodes(t *testing.T) {
-	handler := testHandler()
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	req, err := http.NewRequest("GET", server.URL, nil)
-	if err != nil {
-		t.Fatalf("while creating a new request: %v", err)
-	}
-
-	client := &http.Client{}
-	b, err := Fetch(client, req)
-	if err != nil {
-		t.Errorf("while making a new fetch: %v", err)
-	}
-
-	nodes, err := Nodes(b)
-	if err != nil {
-		t.Errorf("while extracting nodes: %v", err)
-	}
+	nodes := testNodes(t)
 
 	tests := []struct {
 		data string
@@ -146,6 +115,58 @@ func TestNodes(t *testing.T) {
 	}
 }
 
+func testHandler() func(w http.ResponseWriter, r *http.Request) {
+	tpl := `<!DOCTYPE HTML>
+	<html>
+	<head>
+	<title>Testing</title>
+	</head>
+	<body>
+	<header>
+	<h1 class="title">Testing</h1>
+	</header>
+	<a href="https://www.google.com" class="link" id="link">Links</a>
+	<a href="mailto:testing@test.com" class="mail" id="mail">Mail</a>
+	</body>
+	</html>`
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; chatset=UTF-8")
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, tpl)
+	}
+}
+
+func testFetch(t *testing.T) []byte {
+	handler := testHandler()
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
+
+	req, err := http.NewRequest("GET", server.URL, nil)
+	if err != nil {
+		t.Fatalf("while creating a new request: %v", err)
+	}
+
+	client := &http.Client{}
+	b, err := Fetch(client, req)
+	if err != nil {
+		t.Errorf("while making a new fetch: %v", err)
+	}
+
+	return b
+}
+
+func testNodes(t *testing.T) []*html.Node {
+	b := testFetch(t)
+
+	nodes, err := Nodes(b)
+	if err != nil {
+		t.Errorf("while extracting nodes: %v", err)
+	}
+
+	return nodes
+}
+
 func BenchmarkFetch(b *testing.B) {
 	handler := testHandler()
 	server := httptest.NewServer(http.HandlerFunc(handler))
@@ -180,27 +201,5 @@ func BenchmarkNodes(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		Nodes(body)
-	}
-}
-
-func testHandler() func(w http.ResponseWriter, r *http.Request) {
-	tpl := `<!DOCTYPE HTML>
-	<html>
-	<head>
-	<title>Testing</title>
-	</head>
-	<body>
-	<header>
-	<h1 class="title">Testing</h1>
-	</header>
-	<a href="https://www.google.com" class="link" id="link">Links</a>
-	<a href="mailto:testing@test.com" class="mail" id="mail">Mail</a>
-	</body>
-	</html>`
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; chatset=UTF-8")
-		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, tpl)
 	}
 }
