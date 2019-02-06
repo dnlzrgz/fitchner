@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Fetch receives an *http.Client and an *http.Request to make a request.
+// Fetch receives an http.Client and an http.Request to make a request.
 // An error is returned if the client fails to make the request or if there
 // is a non-2xx response. When there is no error, returns a []byte with
 // the body of the response.
