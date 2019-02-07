@@ -82,7 +82,7 @@ func TestNodes(t *testing.T) {
 				},
 				html.Attribute{
 					Key: "class",
-					Val: "mail",
+					Val: "link mail",
 				},
 				html.Attribute{
 					Key: "id",
@@ -105,11 +105,11 @@ func TestNodes(t *testing.T) {
 
 		for j, attr := range tt.attr {
 			if attr.Key != n.Attr[j].Key {
-				t.Errorf("expected node %q to have attribute %v. got %v", n.Data, attr.Key, n.Attr[j].Key)
+				t.Errorf("expected node %q to have attribute %q. got %q", n.Data, attr.Key, n.Attr[j].Key)
 			}
 
 			if attr.Val != n.Attr[j].Val {
-				t.Errorf("expected node %q to have attribute %v with value %v. got %v", n.Data, attr.Key, attr.Val, n.Attr[j].Val)
+				t.Errorf("expected node %q to have attribute %q with value %q. got %q", n.Data, attr.Key, attr.Val, n.Attr[j].Val)
 			}
 		}
 	}
@@ -126,7 +126,7 @@ func testHandler() func(w http.ResponseWriter, r *http.Request) {
 	<h1 class="title">Testing</h1>
 	</header>
 	<a href="https://www.google.com" class="link" id="link">Links</a>
-	<a href="mailto:testing@test.com" class="mail" id="mail">Mail</a>
+	<a href="mailto:testing@test.com" class="link mail" id="mail">Mail</a>
 	</body>
 	</html>`
 
