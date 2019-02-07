@@ -1,7 +1,6 @@
 package fitchner
 
 import (
-	"fmt"
 	"testing"
 
 	"golang.org/x/net/html"
