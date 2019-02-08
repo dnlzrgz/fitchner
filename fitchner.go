@@ -38,6 +38,19 @@ func checkBadStatus(s int) bool {
 	return s != http.StatusOK
 }
 
+// SimpleFetch receives an URL and returns an error if the
+// client fails to make the request or if there is a non-2xx response.
+// When there is no error, returns a []byte with the body of the response.
+func SimpleFetch(url string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("while creating a new request: %v", err)
+	}
+
+	client := &http.Client{}
+	return Fetch(client, req)
+}
+
 // Nodes receives a []byte and extracts all the nodes found.
 // If something goes wrong at parsing it returns an error.
 // When there is no error, returns an []*html.Node with all the nodes found.
