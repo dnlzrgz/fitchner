@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -51,25 +52,55 @@ func SimpleFetch(url string) ([]byte, error) {
 	return Fetch(client, req)
 }
 
-// Nodes receives a []byte and extracts all the nodes found.
-// If something goes wrong at parsing it returns an error.
-// When there is no error, returns an []*html.Node with all the nodes found.
-func Nodes(b []byte) ([]*html.Node, error) {
+func Filter(b []byte, attr, val string) ([]*html.Node, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	if err != nil {
 		return nil, fmt.Errorf("while parsing: %v", err)
 	}
 
-	var parser func(n *html.Node)
+	var pre func(n *html.Node)
+	var post func(n *html.Node)
 	parsed := []*html.Node{}
 
-	parser = func(n *html.Node) {
+	pre = func(n *html.Node) {
 		if n.Type == html.ElementNode {
-			parsed = append(parsed, n)
+			if attr == "" {
+				parsed = append(parsed, n)
+				return
+			}
+
+			for _, a := range n.Attr {
+				if a.Key != attr {
+					continue
+				}
+
+				parsed = append(parsed, n)
+			}
 		}
 	}
 
-	forEachNode(doc, parser, nil)
+	post = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			if val == "" {
+				return
+			}
+
+			tmp := parsed[:0]
+			for _, n := range parsed {
+				for _, a := range n.Attr {
+					if !strings.Contains(a.Val, val) {
+						continue
+					}
+
+					tmp = append(tmp, n)
+				}
+			}
+
+			parsed = tmp
+		}
+	}
+
+	forEachNode(doc, pre, post)
 	return parsed, nil
 }
 
