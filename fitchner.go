@@ -52,6 +52,12 @@ func SimpleFetch(url string) ([]byte, error) {
 	return Fetch(client, req)
 }
 
+// Filter receives a []byte and returns an []*html.Node of nodes
+// which contain the attribute (with or without) a value. If
+// while parsing is any error returns the error. If no attribute or value
+// are provided simple returns all *html.Node of type html.ElementNode found.
+// If value but no attribute are provided returns all the nodes with contains
+// any attribute with the value specified.
 func Filter(b []byte, attr, val string) ([]*html.Node, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	if err != nil {
