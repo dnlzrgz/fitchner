@@ -132,3 +132,28 @@ func forEachNode(n *html.Node, pre, post func(n *html.Node)) {
 		post(n)
 	}
 }
+
+// Links receives a []byte and returns all links found except
+// the links with prefix "tel:". Also removes the "mailto:"
+// prefix if found. Returns an error if any.
+func Links(b []byte) ([]string, error) {
+	nodes, err := Filter(b, "a", "href", "")
+	if err != nil {
+		return nil, err
+	}
+
+	var links []string
+	for _, n := range nodes {
+		for _, a := range n.Attr {
+			if a.Key == "href" {
+				if strings.Contains(a.Val, "tel:") {
+					continue
+				}
+
+				links = append(links, strings.TrimPrefix(a.Val, "mailto:"))
+			}
+		}
+	}
+
+	return links, nil
+}

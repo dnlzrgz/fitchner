@@ -242,6 +242,25 @@ func TestFilterVal(t *testing.T) {
 	testFilter(t, nodes, tests)
 }
 
+func TestLinks(t *testing.T) {
+	b := testFetch(t)
+	links, err := Links(b)
+	if err != nil {
+		t.Errorf("while extracting links: %v", err)
+	}
+
+	tests := []string{"https://www.google.com", "testing@test.com"}
+	if len(tests) != len(links) {
+		t.Errorf("links expected to have len %v. got %v", len(tests), len(links))
+	}
+
+	for i, tt := range tests {
+		if tt != links[i] {
+			t.Errorf("expected %q link. got %q instead", tt, links[i])
+		}
+	}
+}
+
 func testHandler() func(w http.ResponseWriter, r *http.Request) {
 	tpl := `<!DOCTYPE HTML>
 	<html>
@@ -344,5 +363,26 @@ func BenchmarkFilter(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		Filter(body, "a", "class", "link")
+	}
+}
+
+func BenchmarkLinks(b *testing.B) {
+	handler := testHandler()
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
+
+	req, err := http.NewRequest("GET", server.URL, nil)
+	if err != nil {
+		b.Fatalf("while creating a new request: %v", err)
+	}
+
+	client := &http.Client{}
+	body, err := Fetch(client, req)
+	if err != nil {
+		b.Errorf("while making a new fetch: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		Links(body)
 	}
 }
