@@ -37,7 +37,7 @@ func TestFetch(t *testing.T) {
 
 func TestFilter(t *testing.T) {
 	b := testFetch(t)
-	nodes, err := Filter(b, "class", "mail")
+	nodes, err := Filter(b, "a", "class", "mail")
 	if err != nil {
 		t.Errorf("while filtering: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestFilter(t *testing.T) {
 
 func TestFilterEmpty(t *testing.T) {
 	b := testFetch(t)
-	nodes, err := Filter(b, "", "")
+	nodes, err := Filter(b, "", "", "")
 	if err != nil {
 		t.Errorf("while filtering: %v", err)
 	}
@@ -132,9 +132,35 @@ func TestFilterEmpty(t *testing.T) {
 	testFilter(t, nodes, tests)
 }
 
+func TestFilterTag(t *testing.T) {
+	b := testFetch(t)
+	nodes, err := Filter(b, "h1", "", "")
+	if err != nil {
+		t.Errorf("while filtering: %v", err)
+	}
+
+	tests := []struct {
+		data string
+		attr []html.Attribute
+	}{
+		{
+			data: "h1",
+			attr: []html.Attribute{
+				html.Attribute{
+					Key: "class",
+					Val: "title",
+				},
+			},
+		},
+	}
+
+	testFilter(t, nodes, tests)
+
+}
+
 func TestFilterAttr(t *testing.T) {
 	b := testFetch(t)
-	nodes, err := Filter(b, "class", "")
+	nodes, err := Filter(b, "", "class", "")
 	if err != nil {
 		t.Errorf("while filtering: %v", err)
 	}
@@ -193,7 +219,7 @@ func TestFilterAttr(t *testing.T) {
 
 func TestFilterVal(t *testing.T) {
 	b := testFetch(t)
-	nodes, err := Filter(b, "", "title")
+	nodes, err := Filter(b, "", "", "title")
 	if err != nil {
 		t.Errorf("while filtering: %v", err)
 	}
@@ -317,6 +343,6 @@ func BenchmarkFilter(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		Filter(body, "", "")
+		Filter(body, "a", "class", "link")
 	}
 }

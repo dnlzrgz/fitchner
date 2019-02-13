@@ -39,26 +39,10 @@ func checkBadStatus(s int) bool {
 	return s != http.StatusOK
 }
 
-// SimpleFetch receives an URL and returns an error if the
-// client fails to make the request or if there is a non-2xx response.
-// When there is no error, returns a []byte with the body of the response.
-func SimpleFetch(url string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("while creating a new request: %v", err)
-	}
-
-	client := &http.Client{}
-	return Fetch(client, req)
-}
-
 // Filter receives a []byte and returns an []*html.Node of nodes
-// which contain the attribute (with or without) a value. If
-// while parsing is any error returns the error. If no attribute or value
-// are provided simple returns all *html.Node of type html.ElementNode found.
-// If value but no attribute are provided returns all the nodes with contains
-// any attribute with the value specified.
-func Filter(b []byte, attr, val string) ([]*html.Node, error) {
+// with the tag, the attribute or attribute's value specified. The
+// three params are optional. If while parsing is any error returns the error.
+func Filter(b []byte, tag, attr, val string) ([]*html.Node, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	if err != nil {
 		return nil, fmt.Errorf("while parsing: %v", err)
@@ -70,18 +54,43 @@ func Filter(b []byte, attr, val string) ([]*html.Node, error) {
 
 	pre = func(n *html.Node) {
 		if n.Type == html.ElementNode {
-			if attr == "" {
-				parsed = append(parsed, n)
+			if tag != "" {
+				if n.Data == strings.ToLower(tag) {
+					parsed = append(parsed, n)
+				}
+
+				if attr != "" {
+					tmp := parsed[:0]
+					for _, n := range parsed {
+						for _, a := range n.Attr {
+							if a.Key != attr {
+								continue
+							}
+
+							tmp = append(tmp, n)
+						}
+					}
+
+					parsed = tmp
+					return
+				}
+
 				return
 			}
 
-			for _, a := range n.Attr {
-				if a.Key != attr {
-					continue
+			if attr != "" {
+				for _, a := range n.Attr {
+					if a.Key != attr {
+						continue
+					}
+
+					parsed = append(parsed, n)
 				}
 
-				parsed = append(parsed, n)
+				return
 			}
+
+			parsed = append(parsed, n)
 		}
 	}
 
