@@ -277,7 +277,7 @@ func testHandler() func(w http.ResponseWriter, r *http.Request) {
 	</html>`
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; chatset=UTF-8")
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, tpl)
 	}
