@@ -13,7 +13,8 @@ import (
 )
 
 // Fetch receives an http.Client and an http.Request to make a request.
-// An error is returned if the client fails to make the request or if there
+// An error is returned if the client fails to make the request, if there is
+// some problem while reading the response body or if there
 // is a non-2xx response. When there is no error, returns a []byte with
 // the body of the response.
 func Fetch(c *http.Client, req *http.Request) ([]byte, error) {
