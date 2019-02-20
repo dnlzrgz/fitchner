@@ -4,46 +4,49 @@
 
 Fitchner is a Go module which facilities the work with HTTP requests and the extraction of information from HTTP responses.
 
+## Import
+
+```go
+import "github.com/danielkvist/fitchner"
+```
+
 ## Utilities
 
 ### Fetch
 
-Fetch needs and http.Client and a http.Request to make an HTTP request with the specified client.
-It returns an error in case of:
+Fetch makes an HTTP request and returns the response.
+Receives an http.Client and an http.Request for it.
+An error is returned if:
 
-- If the client fails to make the requests.
-- If it gets a non-2xx response.
-- If there is a error while reading the response body with ioutil.ReadAll.
+- The client fails to make the request.
+- There is some problem while reading the response body.
+- There is a non-2xxx response.
 
-If neither of the three cases described above occurs returns a []byte with the body of the response to que client's request.
+When there is no error, returns an io.Reader with the body of the response.
 
 ```go
-func Fetch(c *http.Client, req *http.Request) ([]byte, error)
+func Fetch(c *http.Client, req *http.Request) (io.Reader, error)
 ```
 
 ### Filter
 
-Filter need to receive a []byte with a response body.
-The following params are optional and each of them modifies the returned slice of nodes ([]\*html.Node):
-
-- `tag`.
-- `attr`.
-- `val`.
+Filter filters the body of an HTTP response depending on the received params.
+All three params (tag, attr or val) can be an empty string. In which case a
+slice of \*html.Node with all the found html.ElementNode is returned.
+An error is returned if there is any problem while parsing.
 
 > NOTE: The tag doesn't has to include "<" neither ">".
 
-It returns an error if there is any problem while parsing the body of the response.
-
 ```go
-func Filter(b []byte, tag, attr, val string) ([]*html.Node, error)
+func Filter(r io.Reader, tag, attr, val string) ([]*html.Node, error)
 ```
 
 ### Links
 
-Links returns all the links found on the body of the response that needs to receive. Or, an error if there is any problem while parsing the body of the response.
-
-> Note: Links ignores links with the "tel:" prefix and, also removes the "mailto:" prefix if any.
+Links extracts all the links found on the body of an HTTP response.
+It ignores the links with the prefix "tel:" and removes the "mailto:" prefix.
+An error is returned if there is any problem while parsing.
 
 ```go
-func Links(b []byte) ([]string, error)
+func Links(r io.Reader) ([]string, error)
 ```
