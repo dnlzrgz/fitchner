@@ -128,7 +128,6 @@ func TestFilterTag(t *testing.T) {
 	}
 
 	testFilter(t, nodes, tests)
-
 }
 
 func TestFilterAttr(t *testing.T) {

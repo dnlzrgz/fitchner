@@ -2,7 +2,7 @@
 
 [![GoDoc](https://godoc.org/github.com/danielkvist/fitchner?status.svg)](https://godoc.org/github.com/danielkvist/fitchner)
 
-Fitchner is a Go module which facilities the work with HTTP requests and the extraction of information from HTTP responses.
+Fitchner provides utilities to make HTTP requests and to extract information from the responses.
 
 ## Import
 
