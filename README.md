@@ -25,7 +25,7 @@ An error is returned if:
 When there is no error, returns an io.Reader with the body of the response.
 
 ```go
-func Fetch(c *http.Client, req *http.Request) (io.Reader, error)
+func Fetch(c *http.Client, req *http.Request) (*bytes.Reader, error)
 ```
 
 ### Filter
