@@ -5,7 +5,6 @@ package fitchner
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 )
@@ -16,8 +15,8 @@ import (
 //		*	The client fails to make the request.
 // 		*	There is some problem while reading the response body.
 //		*	There is a non-2xxx response.
-// When there is no error, returns an io.Reader with the body of the response.
-func Fetch(c *http.Client, req *http.Request) (io.Reader, error) {
+// When there is no error, returns a *bytes.Reader with the body of the response.
+func Fetch(c *http.Client, req *http.Request) (*bytes.Reader, error) {
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("while making a request to %q: %v", req.URL, err)
