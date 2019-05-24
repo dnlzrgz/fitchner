@@ -8,127 +8,195 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Filter filters the body of an HTTP response depending on the received params.
-// All three params (tag, attr or val) can be an empty string. In which case a
-// slice of *html.Node with all the found html.ElementNode is returned.
-// An error is returned if there is any problem while parsing.
-func Filter(r io.Reader, tag, attr, val string) ([]*html.Node, error) {
-	doc, err := html.Parse(r)
+// FilterFn defines a filter to apply on Filter.
+type FilterFn func(n *html.Node) bool
+
+// FilterByTag receives an HTML tag without "<" nor ">"
+// and returns a FilterFn that can be used as a filter
+// on Filter.
+func FilterByTag(tag string) FilterFn {
+	return func(n *html.Node) bool {
+		if n.Type != html.ElementNode {
+			return false
+		}
+
+		if n.Data == tag {
+			return true
+		}
+
+		return false
+	}
+}
+
+// FilterByClass receives a CSS class and
+// returns a FilterFn that can be used as a filter
+// on Filter.
+func FilterByClass(class string) FilterFn {
+	return func(n *html.Node) bool {
+		if n.Type != html.ElementNode {
+			return false
+		}
+
+		for _, a := range n.Attr {
+			if a.Key != "class" {
+				continue
+			}
+
+			if ok := strings.Contains(a.Val, class); ok {
+				return true
+			}
+		}
+
+		return false
+	}
+}
+
+// FilterByID receives an ID and returns a FilterFn
+// that can be used as a filter on Filter.
+func FilterByID(id string) FilterFn {
+	return func(n *html.Node) bool {
+		if n.Type != html.ElementNode {
+			return false
+		}
+
+		for _, a := range n.Attr {
+			if a.Key != "id" {
+				continue
+			}
+
+			if ok := strings.Contains(a.Val, id); ok {
+				return true
+			}
+		}
+
+		return false
+	}
+}
+
+// FilterByAttr receives an attribute and returns a
+// FilterFn that can be used as a filter on Filter.
+func FilterByAttr(attr string) FilterFn {
+	return func(n *html.Node) bool {
+		if n.Type != html.ElementNode {
+			return false
+		}
+
+		for _, a := range n.Attr {
+			if a.Key != attr {
+				continue
+			}
+
+			return true
+		}
+
+		return false
+	}
+}
+
+// Filter receives an io.Reader from which to extract the HTML
+// nodes. It returns an error if there is any problem while
+// tokenizing.
+// You can pass none, one or more FilterFn to manipulate the
+// final slice of html.Node. The order of the filters affects the result.
+func Filter(r io.Reader, filters ...FilterFn) ([]*html.Node, error) {
+	nodes, err := tokens(r)
 	if err != nil {
-		return nil, fmt.Errorf("while parsing: %v", err)
+		return nil, fmt.Errorf("while tokenizing: %v", err)
 	}
 
-	var pre func(n *html.Node)
-	var post func(n *html.Node)
-	parsed := []*html.Node{}
-
-	pre = func(n *html.Node) {
-		if n.Type == html.ElementNode {
-			if tag != "" {
-				if n.Data == strings.ToLower(tag) {
-					parsed = append(parsed, n)
-				}
-
-				if attr != "" {
-					tmp := parsed[:0]
-					for _, n := range parsed {
-						for _, a := range n.Attr {
-							if a.Key != attr {
-								continue
-							}
-
-							tmp = append(tmp, n)
-						}
-					}
-
-					parsed = tmp
-					return
-				}
-
-				return
-			}
-
-			if attr != "" {
-				for _, a := range n.Attr {
-					if a.Key != attr {
-						continue
-					}
-
-					parsed = append(parsed, n)
-				}
-
-				return
-			}
-
-			parsed = append(parsed, n)
-		}
+	if filters == nil {
+		return nodes, nil
 	}
 
-	post = func(n *html.Node) {
-		if val == "" {
-			return
-		}
-
-		if n.Type == html.ElementNode {
-			tmp := parsed[:0]
-			for _, n := range parsed {
-				for _, a := range n.Attr {
-					if !strings.Contains(a.Val, val) {
-						continue
-					}
-
-					tmp = append(tmp, n)
-				}
-			}
-
-			parsed = tmp
-		}
-	}
-
-	forEachNode(doc, pre, post)
-	return parsed, nil
+	filtered := forEachNode(nodes, filters...)
+	return filtered, nil
 }
 
-func forEachNode(n *html.Node, pre, post func(n *html.Node)) {
-	if pre != nil {
-		pre(n)
-	}
-
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		forEachNode(c, pre, post)
-	}
-
-	if post != nil {
-		post(n)
-	}
-}
-
-// Links extracts all the links found on the body of an HTTP response.
-// It ignores the links with the prefix "tel:" and removes the "mailto:" prefix.
-// An error is returned if there is any problem while parsing.
+// Links receives an io.Reader from which to extract all the links.
+// It returns an error if there is any problem while tokenizing.
+// If nothing goes wrong it returns a []string with all the links found.
 func Links(r io.Reader) ([]string, error) {
-	doc, err := html.Parse(r)
+	var links []string
+	nodes, err := Filter(r, FilterByAttr("href"))
 	if err != nil {
-		return nil, fmt.Errorf("while parsing: %v", err)
+		return nil, fmt.Errorf("while extracting nodes with attribute \"href\": %v", err)
 	}
 
-	var links []string
-	var pre func(n *html.Node)
-
-	pre = func(n *html.Node) {
-		if n.Type == html.ElementNode {
-			if n.Data == "a" {
-				for _, a := range n.Attr {
-					if a.Key != "href" {
-						continue
-					}
-
-					links = append(links, strings.TrimPrefix(a.Val, "mailto:"))
-				}
+	for _, n := range nodes {
+		for _, a := range n.Attr {
+			if a.Key != "href" {
+				continue
 			}
+
+			links = append(links, a.Val)
+			break
 		}
 	}
 
-	forEachNode(doc, pre, nil)
 	return links, nil
+}
+
+func tokens(r io.Reader) ([]*html.Node, error) {
+	var nodes []*html.Node
+	z := html.NewTokenizer(r)
+
+	for {
+		tt := z.Next()
+
+		switch {
+		case tt == html.ErrorToken:
+			if z.Err() == io.EOF {
+				return nodes, nil
+			}
+			return nodes, fmt.Errorf("while tokenizing: %v", z.Err())
+		case tt == html.StartTagToken:
+			token := z.Token()
+			node := html.Node{
+				Type:     tokenTypeToNodeType(token.Type),
+				DataAtom: token.DataAtom,
+				Data:     token.Data,
+				Attr:     token.Attr,
+			}
+
+			nodes = append(nodes, &node)
+		}
+	}
+}
+
+func tokenTypeToNodeType(tt html.TokenType) html.NodeType {
+	switch tt {
+	case html.TextToken:
+		return html.TextNode
+	case html.StartTagToken:
+		return html.ElementNode
+	case html.EndTagToken:
+		return html.ElementNode
+	case html.SelfClosingTagToken:
+		return html.ElementNode
+	case html.CommentToken:
+		return html.CommentNode
+	case html.DoctypeToken:
+		return html.DoctypeNode
+	default:
+		return html.ErrorNode
+	}
+}
+
+func forEachNode(nodes []*html.Node, filters ...FilterFn) []*html.Node {
+	var filtered []*html.Node
+
+	for _, n := range nodes {
+		pass := true
+		for _, f := range filters {
+			if ok := f(n); !ok {
+				pass = false
+			}
+		}
+
+		if pass {
+			filtered = append(filtered, n)
+		}
+	}
+
+	return filtered
 }

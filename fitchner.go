@@ -1,38 +1,111 @@
-// Package fitchner provides utilities to make HTTP requests
-// and to extract information from the responses.
+// Package fitchner provides utilities to make HTTP request
+// and filter the response easily.
 package fitchner
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
-// Fetch makes an HTTP request and returns the response.
-// Receives an http.Client and an http.Request for it.
-// An error is returned if:
-//		*	The client fails to make the request.
-// 		*	There is some problem while reading the response body.
-//		*	There is a non-2xxx response.
-// When there is no error, returns a *bytes.Reader with the body of the response.
-func Fetch(c *http.Client, req *http.Request) (*bytes.Reader, error) {
-	resp, err := c.Do(req)
+// Fetcher is a simple struct with an *http.Client
+// and an *http.Request.
+type Fetcher struct {
+	c *http.Client
+	r *http.Request
+}
+
+// FetcherOption defines an option for a new Fetcher.
+type FetcherOption func(f *Fetcher) error
+
+// WithClient receives an *http.Client and returns a FetcherOption
+// that applies it.
+func WithClient(c *http.Client) FetcherOption {
+	return func(f *Fetcher) error {
+		f.c = c
+		return nil
+	}
+}
+
+// WithRequest receives an *http.Request and returns a FetcherOption
+// that applies it.
+func WithRequest(r *http.Request) FetcherOption {
+	return func(f *Fetcher) error {
+		f.r = r
+		return nil
+	}
+}
+
+// WithSimpleGetRequest receives an URL and creates a simple HTTP GET request
+// using it and returns a FetcherOption that applies it.
+func WithSimpleGetRequest(url string) FetcherOption {
+	return func(f *Fetcher) error {
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return err
+		}
+
+		f.r = req
+		return nil
+	}
+}
+
+// NewFetcher returns a pointer to a Fetcher applying the options received.
+// It returns an error if:
+// 	* A FetcherOption returns an error.
+//	* There is no http.request provided.
+// So you'll need to pass an http.request using the WithRequest FetcherOption or
+// using the WithSimpleGetRequest FetcherOption.
+// If no http.client is provided it creates and assigns a new one.
+func NewFetcher(opts ...FetcherOption) (*Fetcher, error) {
+	f := Fetcher{}
+	for _, option := range opts {
+		err := option(&f)
+		if err != nil {
+			return nil, fmt.Errorf("while applying option %T to Fetcher: %v", option, err)
+		}
+	}
+
+	if f.r == nil {
+		return nil, fmt.Errorf("while creating new Fetcher: HTTP request not provided")
+	}
+
+	if f.c == nil {
+		f.c = &http.Client{}
+	}
+
+	return &f, nil
+}
+
+// Do uses the http.client and the http.request of a *Fetcher
+// and makes an HTTP request.
+// It returns an error if:
+//	* The status code of the response is not 200 (OK).
+//	* The Content-Type is not of type "text/html;".
+//	* There was an error making the request itself.
+// If nothing goes wrong, it returns a []byte with the body of the response.
+func (f *Fetcher) Do() ([]byte, error) {
+	resp, err := f.c.Do(f.r)
 	if err != nil {
-		return nil, fmt.Errorf("while making a request to %q: %v", req.URL, err)
+		return nil, fmt.Errorf("while making a request to %q using method %q: %v", f.r.URL, f.r.Method, err)
 	}
 	defer resp.Body.Close()
 
-	if checkBadStatus(resp.StatusCode) {
-		return nil, fmt.Errorf("got %v at %s", resp.Status, req.URL)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("response status code: %v", resp.StatusCode)
+	}
+
+	ctype := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(ctype, "text/html") {
+		return nil, fmt.Errorf("response Content-Type is %q. expected Content-Type %q", ctype, "text/html;")
+
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("while reading the response to %q: %v", req.URL, err)
+		return nil, fmt.Errorf("while reading the response body of %q: %v", f.r.URL, err)
 	}
 
-	return bytes.NewReader(b), nil
+	return b, nil
 }
-
-func checkBadStatus(s int) bool { return s != http.StatusOK }

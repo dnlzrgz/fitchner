@@ -1,303 +1,209 @@
 package fitchner
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"golang.org/x/net/html"
 )
 
 func TestFilter(t *testing.T) {
-	b := testFetch(t)
-	nodes, err := Filter(b, "a", "class", "mail")
-	if err != nil {
-		t.Errorf("while filtering: %v", err)
-	}
+	handler := testFilter()
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
 
 	tests := []struct {
-		data string
-		attr []html.Attribute
+		name                string
+		filters             []FilterFn
+		expectedNumberItems int
+		expectedTagItems    []string
 	}{
 		{
-			data: "a",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "href",
-					Val: "mailto:testing@test.com",
-				},
-				html.Attribute{
-					Key: "class",
-					Val: "link mail",
-				},
-				html.Attribute{
-					Key: "id",
-					Val: "mail",
-				},
-			},
-		},
-	}
-
-	testFilter(t, nodes, tests)
-}
-
-func TestFilterEmpty(t *testing.T) {
-	b := testFetch(t)
-	nodes, err := Filter(b, "", "", "")
-	if err != nil {
-		t.Errorf("while filtering: %v", err)
-	}
-
-	tests := []struct {
-		data string
-		attr []html.Attribute
-	}{
-		{data: "html"},
-		{data: "head"},
-		{data: "title"},
-		{data: "body"},
-		{data: "header"},
-		{
-			data: "h1",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "class",
-					Val: "title",
-				},
-			},
+			name:                "no filters",
+			filters:             nil,
+			expectedNumberItems: 8,
+			expectedTagItems:    []string{"html", "head", "title", "body", "h1", "a", "section", "a"},
 		},
 		{
-			data: "a",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "href",
-					Val: "https://www.google.com",
-				},
-				html.Attribute{
-					Key: "class",
-					Val: "link",
-				},
-				html.Attribute{
-					Key: "id",
-					Val: "link",
-				},
-			},
+			name:                "filtering by tag",
+			filters:             []FilterFn{FilterByTag("h1")},
+			expectedNumberItems: 1,
+			expectedTagItems:    []string{"h1"},
 		},
 		{
-			data: "a",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "href",
-					Val: "mailto:testing@test.com",
-				},
-				html.Attribute{
-					Key: "class",
-					Val: "link mail",
-				},
-				html.Attribute{
-					Key: "id",
-					Val: "mail",
-				},
-			},
-		},
-	}
-
-	testFilter(t, nodes, tests)
-}
-
-func TestFilterTag(t *testing.T) {
-	b := testFetch(t)
-	nodes, err := Filter(b, "h1", "", "")
-	if err != nil {
-		t.Errorf("while filtering: %v", err)
-	}
-
-	tests := []struct {
-		data string
-		attr []html.Attribute
-	}{
-		{
-			data: "h1",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "class",
-					Val: "title",
-				},
-			},
-		},
-	}
-
-	testFilter(t, nodes, tests)
-}
-
-func TestFilterAttr(t *testing.T) {
-	b := testFetch(t)
-	nodes, err := Filter(b, "", "class", "")
-	if err != nil {
-		t.Errorf("while filtering: %v", err)
-	}
-
-	tests := []struct {
-		data string
-		attr []html.Attribute
-	}{
-		{
-			data: "h1",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "class",
-					Val: "title",
-				},
-			},
+			name:                "filtering by class",
+			filters:             []FilterFn{FilterByClass("link")},
+			expectedNumberItems: 2,
+			expectedTagItems:    []string{"a", "a"},
 		},
 		{
-			data: "a",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "href",
-					Val: "https://www.google.com",
-				},
-				html.Attribute{
-					Key: "class",
-					Val: "link",
-				},
-				html.Attribute{
-					Key: "id",
-					Val: "link",
-				},
-			},
+			name:                "filtering by id",
+			filters:             []FilterFn{FilterByID("title")},
+			expectedNumberItems: 1,
+			expectedTagItems:    []string{"h1"},
 		},
 		{
-			data: "a",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "href",
-					Val: "mailto:testing@test.com",
-				},
-				html.Attribute{
-					Key: "class",
-					Val: "link mail",
-				},
-				html.Attribute{
-					Key: "id",
-					Val: "mail",
-				},
+			name: "filtering by tag and class",
+			filters: []FilterFn{
+				FilterByClass("home"),
+				FilterByTag("a"),
 			},
+			expectedNumberItems: 1,
+			expectedTagItems:    []string{"a"},
 		},
-	}
-
-	testFilter(t, nodes, tests)
-}
-
-func TestFilterVal(t *testing.T) {
-	b := testFetch(t)
-	nodes, err := Filter(b, "", "", "title")
-	if err != nil {
-		t.Errorf("while filtering: %v", err)
-	}
-
-	tests := []struct {
-		data string
-		attr []html.Attribute
-	}{
 		{
-			data: "h1",
-			attr: []html.Attribute{
-				html.Attribute{
-					Key: "class",
-					Val: "title",
-				},
-			},
+			name:                "filtering by attribute",
+			filters:             []FilterFn{FilterByAttr("href")},
+			expectedNumberItems: 2,
+			expectedTagItems:    []string{"a", "a"},
 		},
 	}
 
-	testFilter(t, nodes, tests)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+			if err != nil {
+				t.Fatalf("while creating a new Fetcher: %v", err)
+			}
+
+			b, err := f.Do()
+			if err != nil {
+				t.Fatalf("while fetching for testing: %v", err)
+			}
+
+			r := bytes.NewReader(b)
+			filtered, err := Filter(r, tc.filters...)
+			if err != nil {
+				t.Fatalf("while filtering: %v", err)
+			}
+
+			if len(filtered) != tc.expectedNumberItems {
+				t.Fatalf("expected %v items filtered. got=%v", tc.expectedNumberItems, len(filtered))
+			}
+
+			for i, n := range filtered {
+				if n.Data != tc.expectedTagItems[i] {
+					t.Fatalf("expected item with tag %q. got item with tag %q", tc.expectedTagItems[i], n.Data)
+				}
+			}
+		})
+	}
 }
 
 func TestLinks(t *testing.T) {
-	b := testFetch(t)
-	links, err := Links(b)
-	if err != nil {
-		t.Errorf("while extracting links: %v", err)
-	}
-
-	tests := []string{"https://www.google.com", "testing@test.com"}
-	if len(tests) != len(links) {
-		t.Errorf("links expected to have len %v. got %v", len(tests), len(links))
-	}
-
-	for i, tt := range tests {
-		if tt != links[i] {
-			t.Errorf("expected %q link. got %q instead", tt, links[i])
-		}
-	}
-}
-
-func testFilter(t *testing.T, nodes []*html.Node, tests []struct {
-	data string
-	attr []html.Attribute
-}) {
-	for i, tt := range tests {
-		n := nodes[i]
-
-		if tt.data != n.Data {
-			t.Errorf("expected node %q. got %q", tt.data, n.Data)
-		}
-
-		if len(tt.attr) != len(n.Attr) {
-			t.Errorf("expected node %q to have %v attributes. got %v", n.Data, len(tt.attr), len(n.Attr))
-		}
-
-		for j, attr := range tt.attr {
-			if attr.Key != n.Attr[j].Key {
-				t.Errorf("expected node %q to have attribute %q. got %q", n.Data, attr.Key, n.Attr[j].Key)
-			}
-
-			if attr.Val != n.Attr[j].Val {
-				t.Errorf("expected node %q to have attribute %q with value %q. got %q", n.Data, attr.Key, attr.Val, n.Attr[j].Val)
-			}
-		}
-	}
-}
-
-func BenchmarkFilter(b *testing.B) {
-	handler := testHandler()
+	handler := testFilter()
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
-	req, err := http.NewRequest("GET", server.URL, nil)
+	expectedLinks := []string{"/", "https://golang.org"}
+
+	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
 	if err != nil {
-		b.Fatalf("while creating a new request: %v", err)
+		t.Fatalf("while creating a new Fetcher: %v", err)
 	}
 
-	client := &http.Client{}
-	body, err := Fetch(client, req)
+	b, err := f.Do()
 	if err != nil {
-		b.Errorf("while making a new fetch: %v", err)
+		t.Fatalf("while fetching for testing: %v", err)
 	}
 
-	for i := 0; i < b.N; i++ {
-		Filter(body, "a", "class", "link")
+	r := bytes.NewReader(b)
+	links, err := Links(r)
+	if err != nil {
+		t.Fatalf("while filtering: %v", err)
+	}
+
+	for i, el := range expectedLinks {
+		if el != links[i] {
+			t.Fatalf("expected link to be %q. got=%q", el, links[i])
+		}
+	}
+
+}
+
+func testFilter() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tpl := `
+		<!DOCTYPE HTML>
+		<html>
+		<head>
+			<title>Testing</title>
+		</head>
+		<body>
+			<h1 id="title">Testing</h1>
+			<a href="/" class="home link">Home</a>
+			<section>
+				<a href="https://golang.org" alt="google" class="link">Golang</a>
+			</section>
+		</body>
+		</html>`
+
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, tpl)
 	}
 }
 
-func BenchmarkLinks(b *testing.B) {
-	handler := testHandler()
+func BenchmarkFilterNoFilters(b *testing.B) {
+	handler := testFilter()
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
-	req, err := http.NewRequest("GET", server.URL, nil)
+	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
 	if err != nil {
-		b.Fatalf("while creating a new request: %v", err)
+		b.Fatalf("while creating a new Fetcher: %v", err)
 	}
 
-	client := &http.Client{}
-	body, err := Fetch(client, req)
+	data, err := f.Do()
 	if err != nil {
-		b.Errorf("while making a new fetch: %v", err)
+		b.Fatalf("while fetching for testing: %v", err)
 	}
 
+	r := bytes.NewReader(data)
 	for i := 0; i < b.N; i++ {
-		Links(body)
+		Filter(r)
+	}
+}
+
+func BenchmarkFilterByClass(b *testing.B) {
+	handler := testFilter()
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
+
+	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+	if err != nil {
+		b.Fatalf("while creating a new Fetcher: %v", err)
+	}
+
+	data, err := f.Do()
+	if err != nil {
+		b.Fatalf("while fetching for testing: %v", err)
+	}
+
+	r := bytes.NewReader(data)
+	for i := 0; i < b.N; i++ {
+		Filter(r, FilterByClass("link"))
+	}
+}
+
+func BenchmarkFilterByTagAndClass(b *testing.B) {
+	handler := testFilter()
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
+
+	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+	if err != nil {
+		b.Fatalf("while creating a new Fetcher: %v", err)
+	}
+
+	data, err := f.Do()
+	if err != nil {
+		b.Fatalf("while fetching for testing: %v", err)
+	}
+
+	r := bytes.NewReader(data)
+	for i := 0; i < b.N; i++ {
+		Filter(r, []FilterFn{FilterByTag("a"), FilterByClass("home")}...)
 	}
 }
