@@ -48,21 +48,21 @@ type Fetcher struct {
 }
 ```
 
-To create a new Fetcher you'll need to use NewFetcher:
+To create a new Fetcher you'll need to use the NewFetcher function:
 
 ```go
 func NewFetcher(opts ...FetcherOption) (*Fetcher, error)
 ```
 
-NewFetche returns a pointer to a *Fetcher applying the options received.
+NewFetcher returns a pointer to a *Fetcher applying the options received.
 It returns an error if:
 
-* A FetcherOption returns an error.
+* A FetcherOption function returns an error.
 * The is no http.request provided.
 
-Define with a FetcherOption an http.Client is optional. If no http.Client is provided a new one is created and assigned to the Fetcher client (f.c). But define an http.request is obligatory.
+Define with a FetcherOption an http.Client is optional. If no http.Client is provided a new one is created and assigned to the Fetcher client (f.c). But define an http.Request is obligatory.
 
-You can pass an http.request witht the following FetcherOption:
+You can pass an http.Request with the followings FetcherOption functions:
 
 ```go
     optReq := fitchner.WithSimpleGetRequest("https://google.com")
@@ -80,7 +80,7 @@ Or:
 
 ## Do
 
-As you can see at the example above. Do uses the http.client and the http.request of a *Fetcher and makes an HTTP request with them.
+As you can see at the example above. Do uses the http.Client and the http.Request of a *Fetcher and makes an HTTP request with them.
 
 ```go
 func (f *Fetcher) Do() ([]byte, error)
@@ -89,7 +89,7 @@ func (f *Fetcher) Do() ([]byte, error)
 It returns an error if:
 
 * The status code of the response is not 200 (OK).
-* The Content-Type of the response is not "text/html;".
+* The Content-Type of the response is not "text/html".
 * There was an error making the request itself.
 
 If nothing goes wrong, it returns a []byte with the body of the response.
@@ -115,7 +115,7 @@ func WithClient(c *http.Client) FetcherOption {
 
 ## Filter
 
-Filter is a function that receives an io.Reader from which to extract the HTML nodes.
+Filter is a function that receives an io.Reader from which to extract HTML nodes.
 
 ```go
 func Filter(r io.Reader, filters ...FilterFn) ([]*html.Node, error)
@@ -123,23 +123,29 @@ func Filter(r io.Reader, filters ...FilterFn) ([]*html.Node, error)
 
 It returns an error if there is any problem extracting the nodes.
 
-You can also pass none, one or more FilterFn to manipulate the final slice.
+You can also pass none, one or more FilterFn functions to manipulate the final slice.
 
 > The order of the filters is important!
 
 ## Links
 
-Links receives an io.Reader and, using Filter and FilterByAttr FilterFn, returns a []string with all the links found.
+Links receives an io.Reader and, using the Filter function and FilterByAttr FilterFn, returns a []string with all the links found.
 
 ```go
 Links(r io.Reader) ([]string, error)
 ```
 
-It returns an error if there is any problem extracting the nodes.
+## Images
+
+Images receives an io.Reader an, as Links, uses the Filter function and FilterByAttr FilterFn to extract a []string with all the images sources found.
+
+```go
+Images(r io.Reader) ([]string, error)
+```
 
 ## FilterFn
 
-A FilterFn defines a filter for Filter.
+A FilterFn defines a filter to filter HTML nodes. If the filter returns true, the HTML node is added to the result of the Filter function. And if the filter returns false the HTML node is excluded.
 
 ```go
 type FilterFn func(n *html.Node) bool
@@ -153,7 +159,3 @@ func FilterByClass(class string) FilterFn
 func FilterByID(id string) FilterFn
 func FilterByAttr(attr string) FilterFn
 ```
-
-## Help
-
-Any help is welcome. So please, if there's anything I can improve on, don't hesitate to let me know.

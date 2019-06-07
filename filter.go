@@ -8,12 +8,15 @@ import (
 	"golang.org/x/net/html"
 )
 
-// FilterFn defines a filter to apply on Filter.
+// FilterFn defines a filter to filter HTML nodes.
+// If the filter returns true, the HTML node is added
+// to the result of the Filter function.
+// If the filter returns false the HTML node is excluded.
 type FilterFn func(n *html.Node) bool
 
 // FilterByTag receives an HTML tag without "<" nor ">"
 // and returns a FilterFn that can be used as a filter
-// on Filter.
+// on the Filter function.
 func FilterByTag(tag string) FilterFn {
 	return func(n *html.Node) bool {
 		if n.Type != html.ElementNode {
@@ -30,7 +33,7 @@ func FilterByTag(tag string) FilterFn {
 
 // FilterByClass receives a CSS class and
 // returns a FilterFn that can be used as a filter
-// on Filter.
+// on the Filter function.
 func FilterByClass(class string) FilterFn {
 	return func(n *html.Node) bool {
 		if n.Type != html.ElementNode {
@@ -52,7 +55,7 @@ func FilterByClass(class string) FilterFn {
 }
 
 // FilterByID receives an ID and returns a FilterFn
-// that can be used as a filter on Filter.
+// that can be used as a filter on the Filter function.
 func FilterByID(id string) FilterFn {
 	return func(n *html.Node) bool {
 		if n.Type != html.ElementNode {
@@ -73,8 +76,8 @@ func FilterByID(id string) FilterFn {
 	}
 }
 
-// FilterByAttr receives an attribute and returns a
-// FilterFn that can be used as a filter on Filter.
+// FilterByAttr receives an HTML attribute and returns a
+// FilterFn that can be used as a filter on the Filter function.
 func FilterByAttr(attr string) FilterFn {
 	return func(n *html.Node) bool {
 		if n.Type != html.ElementNode {
@@ -94,10 +97,15 @@ func FilterByAttr(attr string) FilterFn {
 }
 
 // Filter receives an io.Reader from which to extract the HTML
-// nodes. It returns an error if there is any problem while
-// tokenizing.
-// You can pass none, one or more FilterFn to manipulate the
-// final slice of html.Node. The order of the filters affects the result.
+// nodes.
+//
+// It returns an error if there is any problem while extracting the tokens
+// to create the HTML nodes.
+//
+// You can pass none, one or more FilterFn functions to apply.
+// The order of the filters affects the result.
+//
+// It finally returns an []*html.Node.
 func Filter(r io.Reader, filters ...FilterFn) ([]*html.Node, error) {
 	nodes, err := tokens(r)
 	if err != nil {
@@ -113,7 +121,8 @@ func Filter(r io.Reader, filters ...FilterFn) ([]*html.Node, error) {
 }
 
 // Links receives an io.Reader from which to extract all the links.
-// It returns an error if there is any problem while tokenizing.
+// It returns an error if there is any problem while extrating the tokens
+// to create the HTML nodes from which extract the links.
 // If nothing goes wrong it returns a []string with all the links found.
 func Links(r io.Reader) ([]string, error) {
 	var links []string
@@ -134,6 +143,31 @@ func Links(r io.Reader) ([]string, error) {
 	}
 
 	return links, nil
+}
+
+// Images receives an io.Reader from which to extract all the image sources.
+// It returns an error if there is any problem while extrating the tokens
+// to create the HTML nodes from which extract the images sources.
+// If nothing goes wrong it returns a []string with all the image sources found.
+func Images(r io.Reader) ([]string, error) {
+	var images []string
+	nodes, err := Filter(r, FilterByAttr("src"))
+	if err != nil {
+		return nil, fmt.Errorf("while extracting nodes with attribute \"src\": %v", err)
+	}
+
+	for _, n := range nodes {
+		for _, a := range n.Attr {
+			if a.Key != "src" {
+				continue
+			}
+
+			images = append(images, a.Val)
+			break
+		}
+	}
+
+	return images, nil
 }
 
 func tokens(r io.Reader) ([]*html.Node, error) {

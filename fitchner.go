@@ -54,10 +54,10 @@ func WithSimpleGetRequest(url string) FetcherOption {
 // NewFetcher returns a pointer to a Fetcher applying the options received.
 // It returns an error if:
 // 	* A FetcherOption returns an error.
-//	* There is no http.request provided.
-// So you'll need to pass an http.request using the WithRequest FetcherOption or
+//	* There is no http.Request provided.
+// So you'll need to pass an http.Request using the WithRequest FetcherOption or
 // using the WithSimpleGetRequest FetcherOption.
-// If no http.client is provided it creates and assigns a new one.
+// If no http.Client is provided it creates and assigns a new one.
 func NewFetcher(opts ...FetcherOption) (*Fetcher, error) {
 	f := Fetcher{}
 	for _, option := range opts {
@@ -78,11 +78,11 @@ func NewFetcher(opts ...FetcherOption) (*Fetcher, error) {
 	return &f, nil
 }
 
-// Do uses the http.client and the http.request of a *Fetcher
+// Do uses the http.Client and the http.Request of a *Fetcher
 // and makes an HTTP request.
 // It returns an error if:
 //	* The status code of the response is not 200 (OK).
-//	* The Content-Type is not of type "text/html;".
+//	* The Content-Type is not of type "text/html".
 //	* There was an error making the request itself.
 // If nothing goes wrong, it returns a []byte with the body of the response.
 func (f *Fetcher) Do() ([]byte, error) {
