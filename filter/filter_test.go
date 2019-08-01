@@ -1,4 +1,4 @@
-package fitchner
+package filter
 
 import (
 	"bytes"
@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/danielkvist/fitchner/fitchner"
 )
 
 func TestFilter(t *testing.T) {
@@ -68,7 +70,7 @@ func TestFilter(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+			f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
 			if err != nil {
 				t.Fatalf("while creating a new Fetcher: %v", err)
 			}
@@ -104,7 +106,7 @@ func TestLinks(t *testing.T) {
 
 	expectedLinks := []string{"/", "https://golang.org"}
 
-	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
 	if err != nil {
 		t.Fatalf("while creating a new Fetcher: %v", err)
 	}
@@ -134,7 +136,7 @@ func TestImages(t *testing.T) {
 
 	expectedImages := []string{"cat.jpeg", "btn.png"}
 
-	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
 	if err != nil {
 		t.Fatalf("while creating a new Fetcher: %v", err)
 	}
@@ -191,7 +193,7 @@ func BenchmarkFilterNoFilters(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
-	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
 	if err != nil {
 		b.Fatalf("while creating a new Fetcher: %v", err)
 	}
@@ -212,7 +214,7 @@ func BenchmarkFilterByClass(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
-	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
 	if err != nil {
 		b.Fatalf("while creating a new Fetcher: %v", err)
 	}
@@ -233,7 +235,7 @@ func BenchmarkFilterByTagAndClass(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
-	f, err := NewFetcher(WithSimpleGetRequest(server.URL))
+	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
 	if err != nil {
 		b.Fatalf("while creating a new Fetcher: %v", err)
 	}

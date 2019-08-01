@@ -1,5 +1,4 @@
-// Package fitchner provides utilities to make HTTP request
-// and filter the response easily.
+// Package fitchner provides utilities to make HTTP request easily.
 package fitchner
 
 import (
@@ -16,12 +15,12 @@ type Fetcher struct {
 	r *http.Request
 }
 
-// FetcherOption defines an option for a new Fetcher.
-type FetcherOption func(f *Fetcher) error
+// Option defines an option for a new Fetcher.
+type Option func(f *Fetcher) error
 
 // WithClient receives an *http.Client and returns a FetcherOption
 // that applies it.
-func WithClient(c *http.Client) FetcherOption {
+func WithClient(c *http.Client) Option {
 	return func(f *Fetcher) error {
 		f.c = c
 		return nil
@@ -30,7 +29,7 @@ func WithClient(c *http.Client) FetcherOption {
 
 // WithRequest receives an *http.Request and returns a FetcherOption
 // that applies it.
-func WithRequest(r *http.Request) FetcherOption {
+func WithRequest(r *http.Request) Option {
 	return func(f *Fetcher) error {
 		f.r = r
 		return nil
@@ -39,7 +38,7 @@ func WithRequest(r *http.Request) FetcherOption {
 
 // WithSimpleGetRequest receives an URL and creates a simple HTTP GET request
 // using it and returns a FetcherOption that applies it.
-func WithSimpleGetRequest(url string) FetcherOption {
+func WithSimpleGetRequest(url string) Option {
 	return func(f *Fetcher) error {
 		req, err := http.NewRequest(http.MethodGet, url, nil)
 		if err != nil {
@@ -51,14 +50,14 @@ func WithSimpleGetRequest(url string) FetcherOption {
 	}
 }
 
-// NewFetcher returns a pointer to a Fetcher applying the options received.
+// New returns a pointer to a Fetcher applying the options received.
 // It returns an error if:
 // 	* A FetcherOption returns an error.
 //	* There is no http.Request provided.
 // So you'll need to pass an http.Request using the WithRequest FetcherOption or
 // using the WithSimpleGetRequest FetcherOption.
 // If no http.Client is provided it creates and assigns a new one.
-func NewFetcher(opts ...FetcherOption) (*Fetcher, error) {
+func New(opts ...Option) (*Fetcher, error) {
 	f := Fetcher{}
 	for _, option := range opts {
 		err := option(&f)
@@ -99,7 +98,6 @@ func (f *Fetcher) Do() ([]byte, error) {
 	ctype := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(ctype, "text/html") {
 		return nil, fmt.Errorf("response Content-Type is %q. expected Content-Type %q", ctype, "text/html;")
-
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)

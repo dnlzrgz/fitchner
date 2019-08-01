@@ -1,4 +1,4 @@
-package fitchner
+package filter
 
 import (
 	"fmt"

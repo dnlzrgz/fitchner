@@ -20,12 +20,12 @@ func TestFetcherDo(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		options        []FetcherOption
+		options        []Option
 		expectedToFail bool
 	}{
 		{
 			name: "client and request options",
-			options: []FetcherOption{
+			options: []Option{
 				WithClient(client),
 				WithRequest(req),
 			},
@@ -33,12 +33,12 @@ func TestFetcherDo(t *testing.T) {
 		},
 		{
 			name:           "no options",
-			options:        []FetcherOption{},
+			options:        []Option{},
 			expectedToFail: true,
 		},
 		{
 			name: "simple get request",
-			options: []FetcherOption{
+			options: []Option{
 				WithSimpleGetRequest(server.URL),
 			},
 			expectedToFail: false,
@@ -47,7 +47,7 @@ func TestFetcherDo(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := NewFetcher(tc.options...)
+			f, err := New(tc.options...)
 			if err != nil {
 				if tc.expectedToFail {
 					t.Skipf("expected to fail test: %v", err)
@@ -92,7 +92,7 @@ func BenchmarkFetcherDo(b *testing.B) {
 		return nil
 	}
 
-	f, err := NewFetcher(bc, br)
+	f, err := New(bc, br)
 	if err != nil {
 		b.Fatalf("while creating a new Fetchner for benchmark: %v", err)
 	}
