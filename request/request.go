@@ -8,26 +8,22 @@ import (
 	"net/url"
 )
 
-type Request struct {
-	req *http.Request
-}
-
-type Option func(r *Request) error
+type Option func(r *http.Request) error
 
 func WithMethod(method string) Option {
-	return func(r *Request) error {
+	return func(r *http.Request) error {
 		if method == "" {
-			r.req.Method = http.MethodGet
+			r.Method = http.MethodGet
 			return nil
 		}
 
-		r.req.Method = method
+		r.Method = method
 		return nil
 	}
 }
 
 func WithURL(baseURL string) Option {
-	return func(r *Request) error {
+	return func(r *http.Request) error {
 		if baseURL == "" {
 			return fmt.Errorf("URL for request not provided")
 		}
@@ -37,46 +33,44 @@ func WithURL(baseURL string) Option {
 			return err
 		}
 
-		r.req.URL = parsedURL
+		r.URL = parsedURL
 		return nil
 	}
 }
 
 func WithAgent(agent string) Option {
-	return func(r *Request) error {
+	return func(r *http.Request) error {
 		if agent == "" {
 			return fmt.Errorf("user agent for request not provided")
 		}
 
-		r.req.Header.Set("User-Agent", agent)
+		r.Header.Set("User-Agent", agent)
 		return nil
 	}
 }
 
 func WithBasicAuth(username string, password string) Option {
-	return func(r *Request) error {
-		r.req.SetBasicAuth(username, password)
+	return func(r *http.Request) error {
+		r.SetBasicAuth(username, password)
 		return nil
 	}
 }
 
 func WithBody(body []byte) Option {
-	return func(r *Request) error {
+	return func(r *http.Request) error {
 		if body == nil {
 			return nil
 		}
 
-		r.req.ContentLength = int64(len(body))
-		r.req.Body = ioutil.NopCloser(bytes.NewReader(body))
+		r.ContentLength = int64(len(body))
+		r.Body = ioutil.NopCloser(bytes.NewReader(body))
 
 		return nil
 	}
 }
 
-func New(opts ...Option) (*Request, error) {
-	r := &Request{
-		req: &http.Request{},
-	}
+func New(opts ...Option) (*http.Request, error) {
+	r := &http.Request{}
 
 	for _, option := range opts {
 		err := option(r)
@@ -88,26 +82,22 @@ func New(opts ...Option) (*Request, error) {
 	return r, nil
 }
 
-func (r *Request) Req() *http.Request {
-	return r.req
+func Get(baseURL string) (*http.Request, error) {
+	return http.NewRequest(http.MethodGet, baseURL, nil)
 }
 
-func Get(baseURL string) (*Request, error) {
-	return New(WithMethod(http.MethodGet), WithURL(baseURL))
+func Head(baseURL string) (*http.Request, error) {
+	return http.NewRequest(http.MethodHead, baseURL, nil)
 }
 
-func Head(baseURL string) (*Request, error) {
-	return New(WithMethod(http.MethodHead), WithURL(baseURL))
-}
-
-func Post(baseURL string, body []byte) (*Request, error) {
+func Post(baseURL string, body []byte) (*http.Request, error) {
 	return New(WithMethod(http.MethodPost), WithURL(baseURL), WithBody(body))
 }
 
-func Put(baseURL string, body []byte) (*Request, error) {
+func Put(baseURL string, body []byte) (*http.Request, error) {
 	return New(WithMethod(http.MethodPut), WithURL(baseURL), WithBody(body))
 }
 
-func Delete(baseURL string) (*Request, error) {
-	return New(WithMethod(http.MethodDelete), WithURL(baseURL))
+func Delete(baseURL string) (*http.Request, error) {
+	return http.NewRequest(http.MethodDelete, baseURL, nil)
 }
