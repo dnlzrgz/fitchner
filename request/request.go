@@ -1,7 +1,9 @@
 package request
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 )
@@ -51,6 +53,26 @@ func WithAgent(agent string) Option {
 	}
 }
 
+func WithBasicAuth(username string, password string) Option {
+	return func(r *Request) error {
+		r.req.SetBasicAuth(username, password)
+		return nil
+	}
+}
+
+func WithBody(body []byte) Option {
+	return func(r *Request) error {
+		if body == nil {
+			return nil
+		}
+
+		r.req.ContentLength = int64(len(body))
+		r.req.Body = ioutil.NopCloser(bytes.NewReader(body))
+
+		return nil
+	}
+}
+
 func New(opts ...Option) (*Request, error) {
 	r := &Request{
 		req: &http.Request{},
@@ -64,4 +86,28 @@ func New(opts ...Option) (*Request, error) {
 	}
 
 	return r, nil
+}
+
+func (r *Request) Req() *http.Request {
+	return r.req
+}
+
+func Get(baseURL string) (*Request, error) {
+	return New(WithMethod(http.MethodGet), WithURL(baseURL))
+}
+
+func Head(baseURL string) (*Request, error) {
+	return New(WithMethod(http.MethodHead), WithURL(baseURL))
+}
+
+func Post(baseURL string, body []byte) (*Request, error) {
+	return New(WithMethod(http.MethodPost), WithURL(baseURL), WithBody(body))
+}
+
+func Put(baseURL string, body []byte) (*Request, error) {
+	return New(WithMethod(http.MethodPut), WithURL(baseURL), WithBody(body))
+}
+
+func Delete(baseURL string) (*Request, error) {
+	return New(WithMethod(http.MethodDelete), WithURL(baseURL))
 }
