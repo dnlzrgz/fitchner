@@ -1,3 +1,4 @@
+// Package request provides small utilities to work with http.Response easily.
 package request
 
 import (
@@ -8,8 +9,12 @@ import (
 	"net/url"
 )
 
+// Option defines an option for a new *http.Request.
 type Option func(r *http.Request) error
 
+// WithMethod receives an HTTP method
+// and assigns it to the *http.Request. If the received
+// method is empty it assigns an http.MethodGet.
 func WithMethod(method string) Option {
 	return func(r *http.Request) error {
 		if method == "" {
@@ -22,6 +27,9 @@ func WithMethod(method string) Option {
 	}
 }
 
+// WithURL receives a base URL and assigns it
+// to the *http.Request's URL. If not URL is provided
+// it returns a non-nil error.
 func WithURL(baseURL string) Option {
 	return func(r *http.Request) error {
 		if baseURL == "" {
@@ -38,6 +46,8 @@ func WithURL(baseURL string) Option {
 	}
 }
 
+// WithAgent receives an user agent and uses it
+// as an "User-Agent" head for the *http.Request.
 func WithAgent(agent string) Option {
 	return func(r *http.Request) error {
 		if agent == "" {
@@ -49,6 +59,9 @@ func WithAgent(agent string) Option {
 	}
 }
 
+// WithBasicAuth receives an username and a password
+// and assigns it to the *http.Request to use
+// basic authentication.
 func WithBasicAuth(username string, password string) Option {
 	return func(r *http.Request) error {
 		r.SetBasicAuth(username, password)
@@ -56,6 +69,8 @@ func WithBasicAuth(username string, password string) Option {
 	}
 }
 
+// WithBody receives a []byte and uses it to set the
+// ContentLength of the *http.Request and the Body itself.
 func WithBody(body []byte) Option {
 	return func(r *http.Request) error {
 		if body == nil {
@@ -69,6 +84,8 @@ func WithBody(body []byte) Option {
 	}
 }
 
+// New returns a new *http.Request or an error if
+// any error occurs while applying the received Options.
 func New(opts ...Option) (*http.Request, error) {
 	r := &http.Request{}
 
@@ -82,22 +99,34 @@ func New(opts ...Option) (*http.Request, error) {
 	return r, nil
 }
 
+// Get returns a new *http.Request with an HTTP GET method
+// to the received URL or an error if something goes wrong.
 func Get(baseURL string) (*http.Request, error) {
 	return http.NewRequest(http.MethodGet, baseURL, nil)
 }
 
+// Head returns a new *http.Request with an HTTP HEAD method
+// to the received URL or an error if something goes wrong.
 func Head(baseURL string) (*http.Request, error) {
 	return http.NewRequest(http.MethodHead, baseURL, nil)
 }
 
+// Post returns a new *http.Method with an HTTP POST method
+// using the received body to the received URL
+// or returns an error if something goes wrong.
 func Post(baseURL string, body []byte) (*http.Request, error) {
 	return New(WithMethod(http.MethodPost), WithURL(baseURL), WithBody(body))
 }
 
+// Put returns a new *http.Method with an HTTP PUT method
+// using the received body to the received URL
+// or returns an error if something goes wrong.
 func Put(baseURL string, body []byte) (*http.Request, error) {
 	return New(WithMethod(http.MethodPut), WithURL(baseURL), WithBody(body))
 }
 
+// Delete returns a new *http.Method with an HTTP DELETE method
+// to the received URL or an error if something goes wrong.
 func Delete(baseURL string) (*http.Request, error) {
 	return http.NewRequest(http.MethodDelete, baseURL, nil)
 }
