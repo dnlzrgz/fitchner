@@ -3,15 +3,17 @@ package filter
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/danielkvist/fitchner/fitchner"
+	"github.com/danielkvist/fitchner/client"
+	"github.com/danielkvist/fitchner/request"
 )
 
 func TestFilter(t *testing.T) {
-	handler := testFilter()
+	handler := testHandler()
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
@@ -70,14 +72,25 @@ func TestFilter(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
+			req, err := request.Get(server.URL)
 			if err != nil {
-				t.Fatalf("while creating a new Fetcher: %v", err)
+				t.Fatalf("while creating a new request: %v", err)
 			}
 
-			b, err := f.Do()
+			c, err := client.New()
 			if err != nil {
-				t.Fatalf("while fetching for testing: %v", err)
+				t.Fatalf("while creating a new client: %v", err)
+			}
+
+			resp, err := c.Do(req)
+			if err != nil {
+				t.Fatalf("while making a request: %v", err)
+			}
+			defer resp.Body.Close()
+
+			b, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("while reading the response body: %v", err)
 			}
 
 			r := bytes.NewReader(b)
@@ -100,20 +113,31 @@ func TestFilter(t *testing.T) {
 }
 
 func TestLinks(t *testing.T) {
-	handler := testFilter()
+	handler := testHandler()
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
 	expectedLinks := []string{"/", "https://golang.org"}
 
-	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
+	req, err := request.Get(server.URL)
 	if err != nil {
-		t.Fatalf("while creating a new Fetcher: %v", err)
+		t.Fatalf("while creating a new request: %v", err)
 	}
 
-	b, err := f.Do()
+	c, err := client.New()
 	if err != nil {
-		t.Fatalf("while fetching for testing: %v", err)
+		t.Fatalf("while creating a new client: %v", err)
+	}
+
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("while making a request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("while reading the response body: %v", err)
 	}
 
 	r := bytes.NewReader(b)
@@ -130,20 +154,31 @@ func TestLinks(t *testing.T) {
 }
 
 func TestImages(t *testing.T) {
-	handler := testFilter()
+	handler := testHandler()
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
 	expectedImages := []string{"cat.jpeg", "btn.png"}
 
-	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
+	req, err := request.Get(server.URL)
 	if err != nil {
-		t.Fatalf("while creating a new Fetcher: %v", err)
+		t.Fatalf("while creating a new request: %v", err)
 	}
 
-	b, err := f.Do()
+	c, err := client.New()
 	if err != nil {
-		t.Fatalf("while fetching for testing: %v", err)
+		t.Fatalf("while creating a new client: %v", err)
+	}
+
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("while making a request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("while reading the response body: %v", err)
 	}
 
 	r := bytes.NewReader(b)
@@ -159,7 +194,7 @@ func TestImages(t *testing.T) {
 	}
 }
 
-func testFilter() func(w http.ResponseWriter, r *http.Request) {
+func testHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tpl := `
 		<!DOCTYPE HTML>
@@ -188,65 +223,50 @@ func testFilter() func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func BenchmarkFilterNoFilters(b *testing.B) {
-	handler := testFilter()
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
-	if err != nil {
-		b.Fatalf("while creating a new Fetcher: %v", err)
-	}
-
-	data, err := f.Do()
-	if err != nil {
-		b.Fatalf("while fetching for testing: %v", err)
-	}
-
-	r := bytes.NewReader(data)
-	for i := 0; i < b.N; i++ {
-		Filter(r)
-	}
+func BenchmarkFilterWithoutFilters(b *testing.B) {
+	benchmarkFilter(b)
 }
 
 func BenchmarkFilterByClass(b *testing.B) {
-	handler := testFilter()
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
-	if err != nil {
-		b.Fatalf("while creating a new Fetcher: %v", err)
-	}
-
-	data, err := f.Do()
-	if err != nil {
-		b.Fatalf("while fetching for testing: %v", err)
-	}
-
-	r := bytes.NewReader(data)
-	for i := 0; i < b.N; i++ {
-		Filter(r, FilterByClass("link"))
-	}
+	benchmarkFilter(b, FilterByClass("link"))
 }
 
 func BenchmarkFilterByTagAndClass(b *testing.B) {
-	handler := testFilter()
+	benchmarkFilter(b, FilterByTag("a"), FilterByClass("home"))
+}
+
+func BenchmarkFilterByClassAndTag(b *testing.B) {
+	benchmarkFilter(b, FilterByClass("home"), FilterByTag("a"))
+}
+
+func benchmarkFilter(b *testing.B, filters ...FilterFn) {
+	handler := testHandler()
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
-	f, err := fitchner.New(fitchner.WithSimpleGetRequest(server.URL))
+	req, err := request.Get(server.URL)
 	if err != nil {
-		b.Fatalf("while creating a new Fetcher: %v", err)
+		b.Fatalf("while creating a new request: %v", err)
 	}
 
-	data, err := f.Do()
+	c, err := client.New()
 	if err != nil {
-		b.Fatalf("while fetching for testing: %v", err)
+		b.Fatalf("while creating a new client: %v", err)
 	}
 
-	r := bytes.NewReader(data)
+	resp, err := c.Do(req)
+	if err != nil {
+		b.Fatalf("while making a request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		b.Fatalf("while reading the response body: %v", err)
+	}
+
+	r := bytes.NewReader(body)
 	for i := 0; i < b.N; i++ {
-		Filter(r, []FilterFn{FilterByTag("a"), FilterByClass("home")}...)
+		Filter(r, filters...)
 	}
 }
